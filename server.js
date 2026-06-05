@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'path';
 
-import { WebSocketServer } from 'ws'
+import { WebSocketServer, WebSocket } from 'ws'
 
 const PORT = process.env.PORT ?? 9000;
 
@@ -19,7 +19,14 @@ wsServer.on('connection', (websocket) => {
     
     websocket.on('message', (data) => {
         console.log(`Websocket Message Received.`, data.toString());
-        websocket.send('Pong! Hello from the server.')
+        const message = data.toString();
+
+        // Broadcast only to sockets that are ready to receive.
+        wsServer.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(message);
+            }
+        });
     });
 });
 

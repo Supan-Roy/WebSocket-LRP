@@ -7,14 +7,50 @@
 </head>
 <body>
     <h1>WebSocket Server</h1>
+    <div>
+        <input type="text" placeholder="Enter your message here" 
+        id="message-input">
+        <button id="messages-send-button">Send</button>
+        <ul id="messages-container"></ul>
+    </div>
     <script>
-        const {port} = window.location
-        const connection = new WebSocket(`ws://localhost:${port}`);
+        const messageInput = document.getElementById('message-input')
+        const messageSendButton = document.getElementById('messages-send-button')
+        const messagesContainer = document.getElementById('messages-container')
+
+        const { host } = window.location
+        const connection = new WebSocket(`ws://${host}`);
+
+        function appendMessage(text) {
+            const li = document.createElement('li');
+            li.innerText = text;
+            messagesContainer.appendChild(li);
+        }
+
+        connection.onmessage = (message) => {
+            console.log(`Message Received: `, message);
+            const rawData = message.data;
+
+            try {
+                const parsedData = JSON.parse(rawData);
+                appendMessage(parsedData.message ?? rawData);
+            } catch (error) {
+                appendMessage(rawData);
+            }
+        };
+        
         connection.onopen = () => {
-            connection.send('Ping! Hello from the client.');
-            connection.onmessage = (message) => {
-                console.log(message);
-            };
+            messageSendButton.addEventListener('click', (ev) => {
+                const value = messageInput.value
+                if (connection.readyState !== WebSocket.OPEN) {
+                    return;
+                }
+                connection.send(JSON.stringify({message: value}));
+            });
+            // connection.send('Ping! Hello from the client.');
+            // connection.onmessage = (message) => {
+            //     console.log(message);
+            // };
         };
     </script>
 </body>
