@@ -3,8 +3,10 @@ import fs from 'node:fs/promises';
 import path from 'path';
 
 import { WebSocketServer, WebSocket } from 'ws'
-
+import {redisPublish, redisSubscribe} from './connection.js';
+import { channel } from 'node:diagnostics_channel';
 const PORT = process.env.PORT ?? 9000;
+const REDIS_CHANNEL = 'ws-messages';
 
 const httpServer =  http.createServer(async function(req, res) {
     const indexFile = await fs.readFile(path.resolve('./index.html'), 'utf-8')
@@ -14,19 +16,31 @@ const httpServer =  http.createServer(async function(req, res) {
 
 const wsServer = new WebSocketServer({server: httpServer});
 
+redisSubscribe.subscribe(REDIS_CHANNEL)
+redisSubscribe.on('message', (channel, message) => {
+    if (channel === REDIS_CHANNEL){
+        // Broadcast message to all your connected clients
+        wsServer.clients.forEach((client) => {
+            client.send(message.toString());
+        });
+    }
+})
+
 wsServer.on('connection', (websocket) => {
     console.log(`Websocket Connection...`);
     
-    websocket.on('message', (data) => {
+    websocket.on('message', async (data) => {
         console.log(`Websocket Message Received.`, data.toString());
-        const message = data.toString();
-
+        // const message = data.toString();
+        // RELAY THE MESSAGE TO THE BROKER
+        console.log(`Relaying Message to Redis Broker...`);
+        await redisPublish.publish(REDIS_CHANNEL, data.toString());
         // Broadcast only to sockets that are ready to receive.
-        wsServer.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        });
+        // wsServer.clients.forEach((client) => {
+        //     if (client.readyState === WebSocket.OPEN) {
+        //         client.send(message);
+        //     }
+        //});
     });
 });
 
